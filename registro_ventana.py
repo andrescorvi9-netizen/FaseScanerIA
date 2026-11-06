@@ -10,7 +10,7 @@ from facescan.conexion import ErrorBaseDatos
 from facescan.interfaz import ErrorCamara
 from facescan.motor_facial import ErrorMotorFacial
 
-CARRERAS = ["Ingeniería de Sistemas", "Ingeniería en Computación", "Ingeniería de Software",
+CARRERAS = ["Ingeniería en Sistemas y Computación", "Ingeniería de Software",
             "Administración", "Contaduría", "Psicología", "Otra"]
 LADO_MINIATURA = 105
 COLUMNAS = {"nombre_completo": ("Nombre", 165), "edad": ("Edad", 45),

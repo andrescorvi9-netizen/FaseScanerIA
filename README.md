@@ -11,7 +11,7 @@ FaceScan son **dos programas de escritorio** que comparten una base de datos Pos
 Si el registro agrega, edita o elimina a alguien, el escáner se entera en unos 2 segundos,
 sin reiniciarse.
 
-**Autor:** Carlos Cortes, Ingeniería de Sistemas, Universidad de Cundinamarca. Materia de
+**Autor:** Carlos Cortes, Ingeniería en Sistemas y Computación, Universidad de Cundinamarca. Materia de
 Inteligencia Artificial, 8.º semestre.
 
 **Tecnologías:** Python 3.14, OpenCV 5 (modelos YuNet y SFace en ONNX), Tkinter + Pillow,

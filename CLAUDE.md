@@ -1,7 +1,7 @@
 # FaceScan — Reconocedor facial académico
 
 ## Qué es
-Proyecto de la materia de IA (8.º semestre, Ingeniería de Sistemas, Universidad de Cundinamarca).
+Proyecto de la materia de IA (8.º semestre, Ingeniería en Sistemas y Computación, Universidad de Cundinamarca).
 Son dos programas de escritorio conectados por una base de datos PostgreSQL común:
 
 1. **Registro** (`registro_app.py`): formulario para dar de alta a una persona con sus datos

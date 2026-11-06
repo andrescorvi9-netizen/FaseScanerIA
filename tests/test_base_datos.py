@@ -30,7 +30,8 @@ def bd(base_pruebas, monkeypatch, tmp_path):
 
 def datos_persona(**cambios):
     """Devuelve los datos de una persona válida, con los cambios indicados."""
-    datos = {"nombre_completo": "Ana Pérez", "edad": 21, "carrera": "Ingeniería de Sistemas",
+    datos = {"nombre_completo": "Ana Pérez", "edad": 21,
+             "carrera": "Ingeniería en Sistemas y Computación",
              "semestre": 8, "codigo": "", "consentimiento": True}
     datos.update(cambios)
     return datos

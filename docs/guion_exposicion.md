@@ -1,6 +1,6 @@
 # Guion de exposición: FaceScan
 
-Expositor: Carlos Cortes · IA, 8.º semestre · Ingeniería de Sistemas, Universidad de Cundinamarca
+Expositor: Carlos Cortes · IA, 8.º semestre · Ingeniería en Sistemas y Computación, Universidad de Cundinamarca
 
 Duración sugerida: unos 10 minutos de código, 3 de demo y preguntas.
 
