@@ -15,7 +15,12 @@ Duración sugerida: unos 10 minutos de código, 3 de demo y preguntas.
       cámara de la laptop. Cierra Teams, Zoom y la app Cámara.
 - [ ] **Venv activado** en las dos terminales: `.venv\Scripts\Activate.ps1`. Abre las dos
       terminales en la carpeta `facereconer`.
-- [ ] **Buena luz de frente.** Si es de noche, ten la luz del celular a mano.
+- [ ] **Buena luz de frente.** Con buena luz la cámara da un brillo medio de ~114; de noche
+      con luz de celular la imagen salió casi negra. Si es de noche, ten la luz del celular a mano.
+- [ ] Tu registro tiene **4 fotos**: con ellas la similitud en vivo fue de 52 % a 90 % (mediana
+      77 %), incluso girando la cara. Si el escáner te marca "Desconocido", ponte de frente.
+- [ ] **Ensaya la demo con el compañero antes de exponer.** La prueba completa con dos
+      personas a la vez todavía no se ha hecho (los pasos de pausar y reanudar sí: 5 de 5).
 - [ ] **pgAdmin abierto** en *facescan > Schemas > public > Tables*.
 - [ ] **Compañero para la demo:** que acepte de antemano ser registrado y luego eliminado.
 - [ ] Ejecuta `python -m pytest` una vez: deben salir 45 pruebas en verde.
@@ -89,7 +94,7 @@ Abre cada archivo en VS Code en este orden. Busca la función con `Ctrl+Shift+O`
   validaciones antes de `registrar_persona`).
 
 ### 8. `escaner_ventana.py` → `escaner_app.py`
-- **Qué decir:** "El ciclo de la cámara se reprograma con `after()`, a unos 27 cuadros por
+- **Qué decir:** "El ciclo de la cámara se reprograma con `after()`, a unos 26 cuadros por
   segundo. Solo 1 de cada 3 cuadros se analiza, y la ficha cambia solo si 3 análisis
   seguidos coinciden. Cada 2 segundos, en otro hilo, pregunta la versión a la base: si
   cambió, recarga los vectores. Por eso reconoce a alguien nuevo sin reiniciarse."
@@ -139,8 +144,10 @@ solo un producto punto: `matriz @ vector` compara contra todas las fotos en una 
 
 **4. ¿Por qué el umbral 0,363?**
 Es el valor que recomienda OpenCV para SFace con distancia coseno. En nuestras pruebas, la
-misma persona dio entre 0,43 y 0,97 y personas distintas dieron 0,13, así que queda en
-medio. Se puede ajustar en vivo con el control del escáner.
+misma persona en vivo dio entre 0,52 y 0,90 (mediana 0,77) con 4 fotos registradas, y dos
+personas distintas dieron 0,13 con las imágenes de muestra de OpenCV, así que el umbral
+queda en medio. Con solo 2 fotos, girar la cara bajó a 0,36: por eso conviene registrar
+varias. Se puede ajustar en vivo con el control del escáner.
 
 **5. ¿Qué pasa con una foto impresa?**
 Lo más probable es que la reconozca como la persona: el sistema no tiene detección de

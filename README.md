@@ -238,26 +238,51 @@ intermedios.
 
 ## Resultados de las pruebas
 
+**Con las imágenes de muestra de OpenCV:**
+
 | Prueba | Resultado |
 |---|---|
 | Misma persona, foto en espejo (imagen de muestra de OpenCV) | similitud **0,91** |
 | Misma persona, foto oscurecida | similitud **0,97** |
 | Dos personas distintas (imágenes de muestra de OpenCV) | similitud **0,13** |
-| En vivo con la cámara del autor, de noche con luz de celular | **43 %–79 %**, siempre reconocido |
-| Velocidad del escáner con MSMF | **~27 cuadros por segundo** |
+
+**En vivo con la cámara del autor** (30 s de frente y luego girando la cara a los lados):
+
+| Condición | Cuadros con la ficha correcta | Similitud mín. / mediana / máx. | Análisis en "Desconocido" |
+|---|---|---|---|
+| De noche, luz de celular (imagen casi negra), 2 fotos registradas | 94–100 % | 43 % / 61–65 % / 79 % | — |
+| Buena luz, **2 fotos** registradas | **99 %** | 36 % / 60 % / 77 % | 2 de 167 (al girar la cara) |
+| Buena luz, **4 fotos** registradas | **99 %** | **52 % / 77 % / 90 %** | **0 de 157** |
+
+Con 4 fotos, la similitud mediana subió de 60 % a 77 %, y la mínima (con la cara girada)
+pasó de 36 %, debajo del umbral, a 52 %. Parte de la mejora se debe a que las 2 fotos
+nuevas se tomaron con la misma cámara y la misma luz de la prueba. Por eso conviene
+registrar de 3 a 5 fotos en las condiciones en que se va a usar el escáner. No hubo
+ningún falso positivo, pero con una sola persona registrada eso todavía no se puede medir
+del todo.
+
+**Otras mediciones:**
+
+| Prueba | Resultado |
+|---|---|
+| Cámara con MSMF (buena luz) | brillo medio 114/255, **30 cuadros por segundo** |
+| Escáner con un rostro en cuadro | **~26 cuadros por segundo** (YuNet ~21 ms y SFace ~16 ms, 1 de cada 3 cuadros) |
+| Pausar el escáner → tomar foto en el registro → Reanudar | **5 de 5**; el registro abre la cámara en 1,3–1,7 s y la imagen vuelve en 1,1–1,5 s |
 | Nuevo registro visible en el escáner | **~1,3 s**, sin reiniciar |
+| "Analizar foto" con una foto registrada | 100 %, en 0,9 s |
 | Pruebas automáticas (`python -m pytest`) | **45 pruebas en verde** |
 
 Las pruebas automáticas cubren la base de datos (contra una base aparte, `facescan_test`),
 el motor facial, la apertura de la cámara y la pausa del escáner (con una cámara simulada)
-y el análisis de fotos del registro. También cubren los errores: PostgreSQL apagado, contraseña incorrecta, base
-sin tablas, modelo dañado y foto corrupta.
+y el análisis de fotos del registro. También cubren los errores: PostgreSQL apagado,
+contraseña incorrecta, base sin tablas, modelo dañado y foto corrupta.
 
 ---
 
 ## Limitaciones
 
-- **Luz y ángulo:** con poca luz o con el rostro muy de lado, la similitud baja. Conviene
+- **Luz y ángulo:** con poca luz o con el rostro muy de lado, la similitud baja. Con solo
+  2 fotos registradas, girar la cara la bajó a 36 %, por debajo del umbral. Conviene
   registrar 3 a 5 fotos con distintos ángulos y luz.
 - **Gemelos y personas muy parecidas:** pueden superar el umbral y confundirse.
 - **No detecta suplantación:** una foto impresa o en un celular puede ser reconocida como
