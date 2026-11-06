@@ -1,25 +1,14 @@
-"""Programa 1: registro de personas con sus fotos."""
+"""Programa 1: registro de personas con sus fotos (las acciones de cada botón)."""
 
 import shutil
 import tempfile
-import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
-
-import numpy as np
+from tkinter import filedialog, messagebox
 
 from facescan import base_datos, config, interfaz, motor_facial
-from facescan.base_datos import ErrorBaseDatos
-from facescan.interfaz import ErrorCamara
+from facescan.conexion import ErrorBaseDatos
 from facescan.motor_facial import ErrorMotorFacial
-
-CARRERAS = ["Ingeniería de Sistemas", "Ingeniería de Software", "Administración",
-            "Contaduría", "Psicología", "Otra"]
-TIPOS_IMAGEN = [("Imágenes", "*.jpg *.jpeg *.png"), ("Todos los archivos", "*.*")]
-LADO_MINIATURA = 105
-COLUMNAS = {"nombre_completo": ("Nombre", 165), "edad": ("Edad", 45),
-            "carrera": ("Carrera", 150), "semestre": ("Sem.", 45), "num_fotos": ("Fotos", 45)}
-ERRORES_CONOCIDOS = (ErrorBaseDatos, ErrorMotorFacial, ErrorCamara)
+from registro_ventana import VentanaRegistro
 
 
 def analizar_foto(ruta):
@@ -55,8 +44,8 @@ def agregar_fotos_a_persona(id_persona, rutas):
     return agregadas, problemas
 
 
-class AppRegistro:
-    """Ventana principal del programa de registro."""
+class AppRegistro(VentanaRegistro):
+    """Ventana de registro con el estado del formulario y lo que hace cada botón."""
 
     def __init__(self, ventana):
         self.ventana = ventana
@@ -68,144 +57,14 @@ class AppRegistro:
         self.refrescar_lista(avisar=True)
         ventana.protocol("WM_DELETE_WINDOW", self.cerrar)
 
-    # ---------- Construcción de la interfaz ----------
-
-    def construir_interfaz(self):
-        """Arma las dos columnas de la ventana y la barra de estado."""
-        izquierda = ttk.Frame(self.ventana, padding=10, width=510)
-        derecha = ttk.Frame(self.ventana, padding=10)
-        izquierda.pack(side="left", fill="y")
-        izquierda.pack_propagate(False)  # ancho fijo: la tabla no se mueve al agregar fotos
-        derecha.pack(side="left", fill="both", expand=True)
-        self.construir_formulario(izquierda)
-        self.construir_fotos(izquierda)
-        self.construir_lista(derecha)
-        self.var_estado = tk.StringVar(value="Listo.")
-        ttk.Label(izquierda, textvariable=self.var_estado, foreground="gray").pack(anchor="w")
-
-    def construir_formulario(self, padre):
-        """Crea los campos de la persona, la casilla y los botones."""
-        self.var_titulo = tk.StringVar(value="Nueva persona")
-        ttk.Label(padre, textvariable=self.var_titulo, font=("Segoe UI", 13, "bold")).pack(anchor="w")
-        marco = ttk.Frame(padre)
-        marco.pack(fill="x", pady=6)
-        self.var_nombre, self.var_codigo = tk.StringVar(), tk.StringVar()
-        self.var_edad, self.var_semestre = tk.StringVar(value="18"), tk.StringVar(value="1")
-        self.var_carrera = tk.StringVar(value=CARRERAS[0])
-        self.var_consentimiento = tk.BooleanVar()
-        campos = [
-            ("Nombre completo", ttk.Entry(marco, textvariable=self.var_nombre, width=40)),
-            ("Edad", ttk.Spinbox(marco, from_=10, to=100, textvariable=self.var_edad, width=6)),
-            ("Carrera", ttk.Combobox(marco, values=CARRERAS, textvariable=self.var_carrera, width=37)),
-            ("Semestre", ttk.Spinbox(marco, from_=1, to=10, textvariable=self.var_semestre, width=6)),
-            ("Código estudiantil (opcional)", ttk.Entry(marco, textvariable=self.var_codigo, width=20)),
-        ]
-        for fila, (texto, campo) in enumerate(campos):
-            ttk.Label(marco, text=texto).grid(row=fila, column=0, sticky="w", pady=3, padx=(0, 8))
-            campo.grid(row=fila, column=1, sticky="w")
-        ttk.Checkbutton(padre, variable=self.var_consentimiento,
-                        text="La persona autoriza el uso de su rostro para este proyecto académico"
-                        ).pack(anchor="w", pady=4)
-        botones = ttk.Frame(padre)
-        botones.pack(fill="x", pady=4)
-        self.botones_foto = [
-            ttk.Button(botones, text="Cargar foto(s)", command=self.cargar_fotos),
-            ttk.Button(botones, text="Tomar foto con cámara", command=self.tomar_foto),
-        ]
-        self.boton_guardar = ttk.Button(botones, text="Guardar persona", command=self.guardar)
-        self.botones_accion = [self.boton_guardar,
-                               ttk.Button(botones, text="Limpiar", command=self.limpiar)]
-        for boton in self.botones_foto + self.botones_accion:
-            boton.pack(side="left", padx=(0, 6))
-
-    def construir_fotos(self, padre):
-        """Crea la zona donde se ven las miniaturas."""
-        ttk.Label(padre, text=f"Fotos (1 a {config.MAX_FOTOS_POR_PERSONA}, verde = válida)").pack(anchor="w")
-        self.marco_fotos = ttk.Frame(padre, height=2 * LADO_MINIATURA + 60)
-        self.marco_fotos.pack(fill="x", pady=4)
-
-    def construir_lista(self, padre):
-        """Crea la tabla de personas registradas y sus botones."""
-        ttk.Label(padre, text="Personas registradas", font=("Segoe UI", 13, "bold")).pack(anchor="w")
-        self.lista = ttk.Treeview(padre, columns=list(COLUMNAS), show="headings", selectmode="browse")
-        for columna, (titulo, ancho) in COLUMNAS.items():
-            self.lista.heading(columna, text=titulo)
-            self.lista.column(columna, width=ancho, anchor="w" if ancho > 60 else "center")
-        self.lista.pack(fill="both", expand=True, pady=6)
-        botones = ttk.Frame(padre)
-        botones.pack(fill="x")
-        for texto, accion in [("Editar", self.editar), ("Agregar fotos", self.agregar_fotos),
-                              ("Eliminar", self.eliminar), ("Actualizar lista", lambda: self.refrescar_lista(avisar=True))]:
-            boton = ttk.Button(botones, text=texto, command=accion)
-            boton.pack(side="left", padx=(0, 6))
-            self.botones_accion.append(boton)
-
-    def dibujar_miniaturas(self):
-        """Vuelve a pintar las miniaturas: verde si es válida, rojo si no."""
-        for hijo in self.marco_fotos.winfo_children():
-            hijo.destroy()
-        for indice, foto in enumerate(self.fotos):
-            valida = foto["embedding"] is not None
-            color = interfaz.VERDE if valida else interfaz.ROJO
-            celda = tk.Frame(self.marco_fotos, bg="#%02x%02x%02x" % color[::-1], padx=3, pady=3)
-            celda.grid(row=indice // 4, column=indice % 4, padx=4, pady=4)
-            imagen = foto["imagen"]
-            if imagen is None:
-                imagen = np.full((LADO_MINIATURA, LADO_MINIATURA, 3), 200, dtype=np.uint8)
-            marcas = [(r["caja"], color, None) for r in foto["rostros"]]
-            grosor = max(2, max(imagen.shape[:2]) // 40)  # visible aun después de reducir
-            miniatura = interfaz.imagen_a_tk(interfaz.dibujar_rostros(imagen, marcas, grosor),
-                                             LADO_MINIATURA, LADO_MINIATURA)
-            etiqueta = tk.Label(celda, image=miniatura)
-            etiqueta.imagen = miniatura  # guardar la referencia evita que Tkinter la borre
-            etiqueta.pack()
-            tk.Label(celda, text=foto["estado"], bg=celda["bg"], fg="white").pack(fill="x")
-            ttk.Button(celda, text="✕ Quitar", command=lambda i=indice: self.quitar_foto(i)).pack(fill="x")
-
-    # ---------- Ayudas ----------
-
-    def leer_formulario(self):
-        """Devuelve los datos del formulario como dict."""
-        return {"nombre_completo": self.var_nombre.get(), "edad": self.var_edad.get(),
-                "carrera": self.var_carrera.get(), "semestre": self.var_semestre.get(),
-                "codigo": self.var_codigo.get(), "consentimiento": self.var_consentimiento.get()}
-
-    def id_seleccionado(self):
-        """Devuelve el id de la persona elegida en la lista, o None."""
-        seleccion = self.lista.selection()
-        if not seleccion:
-            messagebox.showinfo("FaceScan", "Primero selecciona una persona de la lista.")
-            return None
-        return int(seleccion[0])
-
-    def actualizar_botones(self):
-        """Activa o desactiva botones según si hay trabajo en curso o se edita."""
-        normal = "disabled" if self.ocupado else "normal"
-        for boton in self.botones_accion:
-            boton.configure(state=normal)
-        fotos = "disabled" if self.ocupado or self.id_editando is not None else "normal"
-        for boton in self.botones_foto:
-            boton.configure(state=fotos)
-
-    def mostrar_error(self, error):
-        """Muestra el error en un messagebox, con su mensaje tal como viene."""
-        if isinstance(error, ERRORES_CONOCIDOS):
-            messagebox.showerror("FaceScan", str(error))
-        else:
-            messagebox.showerror("FaceScan", f"Ocurrió un error inesperado:\n{error}")
+    # ---------- Trabajo en segundo plano ----------
 
     def ejecutar(self, tarea, texto, al_exito):
         """Corre tarea() en segundo plano y luego al_exito(resultado), o muestra el error."""
-        self.ocupado = True
-        self.var_estado.set(texto)
-        self.ventana.configure(cursor="watch")
-        self.actualizar_botones()
+        self.marcar_ocupado(True, texto)
 
         def al_terminar(resultado, error):
-            self.ocupado = False
-            self.var_estado.set("Listo.")
-            self.ventana.configure(cursor="")
-            self.actualizar_botones()
+            self.marcar_ocupado(False, "Listo.")
             if error:
                 self.mostrar_error(error)
             else:
@@ -214,11 +73,18 @@ class AppRegistro:
 
         interfaz.en_segundo_plano(self.ventana, tarea, al_terminar)
 
-    # ---------- Acciones de los botones ----------
+    def marcar_ocupado(self, ocupado, texto):
+        """Muestra el estado y bloquea los botones mientras hay trabajo en curso."""
+        self.ocupado = ocupado
+        self.var_estado.set(texto)
+        self.ventana.configure(cursor="watch" if ocupado else "")
+        self.actualizar_botones(ocupado, self.id_editando is not None)
+
+    # ---------- Fotos del formulario ----------
 
     def cargar_fotos(self):
         """Elige fotos del disco y las analiza."""
-        rutas = filedialog.askopenfilenames(title="Elegir fotos", filetypes=TIPOS_IMAGEN)
+        rutas = filedialog.askopenfilenames(title="Elegir fotos", filetypes=interfaz.TIPOS_IMAGEN)
         self.agregar_a_vista(rutas)
 
     def tomar_foto(self):
@@ -228,11 +94,11 @@ class AppRegistro:
 
     def agregar_a_vista(self, rutas):
         """Analiza las fotos en segundo plano respetando el máximo por persona."""
-        espacio = config.MAX_FOTOS_POR_PERSONA - len(self.fotos)
+        espacio = max(config.MAX_FOTOS_POR_PERSONA - len(self.fotos), 0)
         if rutas and len(rutas) > espacio:
             messagebox.showwarning("FaceScan", f"Máximo {config.MAX_FOTOS_POR_PERSONA} fotos por "
-                                   f"persona: solo se agregarán {max(espacio, 0)}.")
-            rutas = rutas[:max(espacio, 0)]
+                                   f"persona: solo se agregarán {espacio}.")
+            rutas = rutas[:espacio]
         if rutas:
             self.ejecutar(lambda: [analizar_foto(ruta) for ruta in rutas],
                           "Analizando fotos…", self.al_analizar)
@@ -240,12 +106,14 @@ class AppRegistro:
     def al_analizar(self, fotos):
         """Agrega las fotos analizadas a la vista previa."""
         self.fotos.extend(fotos)
-        self.dibujar_miniaturas()
+        self.dibujar_miniaturas(self.fotos)
 
     def quitar_foto(self, indice):
         """Quita una foto de la vista previa."""
         del self.fotos[indice]
-        self.dibujar_miniaturas()
+        self.dibujar_miniaturas(self.fotos)
+
+    # ---------- Guardar, limpiar y editar ----------
 
     def guardar(self):
         """Registra a la persona nueva o guarda los cambios de la que se edita."""
@@ -276,17 +144,13 @@ class AppRegistro:
 
     def limpiar(self):
         """Deja el formulario vacío y en modo de persona nueva."""
-        for variable, valor in [(self.var_nombre, ""), (self.var_codigo, ""), (self.var_edad, "18"),
-                                (self.var_semestre, "1"), (self.var_carrera, CARRERAS[0]),
-                                (self.var_consentimiento, False), (self.var_titulo, "Nueva persona")]:
-            variable.set(valor)
         self.id_editando = None
-        self.boton_guardar.configure(text="Guardar persona")
+        self.llenar_formulario()
         self.fotos = []
-        self.dibujar_miniaturas()
+        self.dibujar_miniaturas(self.fotos)
         for archivo in self.carpeta_temporal.iterdir():  # fotos de cámara ya guardadas o descartadas
             archivo.unlink(missing_ok=True)
-        self.actualizar_botones()
+        self.actualizar_botones(self.ocupado, editando=False)
 
     def editar(self):
         """Lee de la base (en segundo plano) los datos de la persona elegida."""
@@ -301,22 +165,19 @@ class AppRegistro:
             messagebox.showinfo("FaceScan", "Esa persona ya no existe.")
             return
         self.limpiar()
-        for variable, campo in [(self.var_nombre, "nombre_completo"), (self.var_edad, "edad"),
-                                (self.var_carrera, "carrera"), (self.var_semestre, "semestre"),
-                                (self.var_consentimiento, "consentimiento")]:
-            variable.set(persona[campo])
-        self.var_codigo.set(persona["codigo"] or "")
         self.id_editando = persona["id"]
-        self.var_titulo.set(f"Editando: {persona['nombre_completo']}")
-        self.boton_guardar.configure(text="Guardar cambios")
-        self.actualizar_botones()
+        self.llenar_formulario(persona)
+        self.actualizar_botones(self.ocupado, editando=True)
+
+    # ---------- Acciones sobre la lista ----------
 
     def agregar_fotos(self):
         """Agrega fotos a la persona elegida en la lista."""
         id_persona = self.id_seleccionado()
         if id_persona is None:
             return
-        rutas = filedialog.askopenfilenames(title="Fotos para agregar", filetypes=TIPOS_IMAGEN)
+        rutas = filedialog.askopenfilenames(title="Fotos para agregar",
+                                            filetypes=interfaz.TIPOS_IMAGEN)
         if rutas:
             self.ejecutar(lambda: agregar_fotos_a_persona(id_persona, rutas),
                           "Agregando fotos…", self.al_agregar_fotos)
@@ -361,10 +222,7 @@ class AppRegistro:
             return
         if not self.ocupado:
             self.var_estado.set("Listo.")
-        self.lista.delete(*self.lista.get_children())
-        for persona in personas:
-            self.lista.insert("", "end", iid=str(persona["id"]),
-                              values=[persona[columna] for columna in COLUMNAS])
+        self.llenar_lista(personas)
 
     def cerrar(self):
         """Borra las fotos temporales de la cámara y cierra la ventana."""
@@ -377,18 +235,7 @@ class AppRegistro:
 
 def main():
     """Abre la ventana de registro."""
-    ventana = tk.Tk()
-    ventana.title("FaceScan · Registro")
-    ventana.geometry("1000x650")
-    try:
-        motor_facial.cargar_modelos()
-    except ErrorMotorFacial as error:
-        ventana.withdraw()
-        messagebox.showerror("FaceScan", str(error))
-        ventana.destroy()
-        return
-    AppRegistro(ventana)
-    ventana.mainloop()
+    interfaz.iniciar_app(AppRegistro, "FaceScan · Registro", "1000x650")
 
 
 if __name__ == "__main__":

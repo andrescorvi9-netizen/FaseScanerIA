@@ -18,6 +18,7 @@ from facescan import config, motor_facial
 VERDE = (60, 180, 75)    # colores en BGR, como los usa OpenCV
 ROJO = (40, 40, 220)
 BACKENDS = {"MSMF": cv2.CAP_MSMF, "DSHOW": cv2.CAP_DSHOW}  # Media Foundation y DirectShow
+TIPOS_IMAGEN = [("Imágenes", "*.jpg *.jpeg *.png"), ("Todos los archivos", "*.*")]
 
 
 class ErrorCamara(Exception):
@@ -178,3 +179,19 @@ def ventana_captura(padre, carpeta, al_capturar):
     ttk.Button(ventana, text="Capturar", command=capturar).pack(pady=8)
     ventana.protocol("WM_DELETE_WINDOW", cerrar)
     actualizar()
+
+
+def iniciar_app(clase_app, titulo, tamano):
+    """Crea la ventana, comprueba los modelos y arranca la app (o explica qué falta)."""
+    ventana = tk.Tk()
+    ventana.title(titulo)
+    ventana.geometry(tamano)
+    try:
+        motor_facial.cargar_modelos()
+    except motor_facial.ErrorMotorFacial as error:
+        ventana.withdraw()
+        messagebox.showerror("FaceScan", str(error))
+        ventana.destroy()
+        return
+    clase_app(ventana)
+    ventana.mainloop()

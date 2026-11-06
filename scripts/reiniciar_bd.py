@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from facescan import base_datos, config  # noqa: E402
+from facescan import config, conexion  # noqa: E402
 
 
 def main():
@@ -15,8 +15,8 @@ def main():
         print("Cancelado: no se borró nada.")
         return
     try:
-        base_datos.reiniciar()
-    except base_datos.ErrorBaseDatos as error:
+        conexion.reiniciar()
+    except conexion.ErrorBaseDatos as error:
         print(f"Error: {error}")
         sys.exit(1)
     print("Listo: base de datos y carpeta de fotos vacías.")

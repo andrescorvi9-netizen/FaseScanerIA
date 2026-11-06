@@ -32,14 +32,17 @@ facereconer/
 ├── README.md
 ├── requirements.txt
 ├── .env.ejemplo             # FACESCAN_DB_HOST, _PORT, _NAME, _USER, _PASSWORD
-├── registro_app.py          # Programa 1
-├── escaner_app.py           # Programa 2
+├── registro_app.py          # Programa 1: acciones de los botones (python registro_app.py)
+├── registro_ventana.py      # Programa 1: construcción de la ventana (formulario, tabla)
+├── escaner_app.py           # Programa 2: cámara, reconocimiento, recarga desde la base
+├── escaner_ventana.py       # Programa 2: construcción de la ventana (vista, ficha)
 ├── facescan/                # Código compartido por los dos programas
 │   ├── __init__.py
 │   ├── config.py            # Rutas, umbrales, cámara, datos de conexión desde .env
-│   ├── base_datos.py        # Todo el SQL vive aquí (también copia y borra las fotos)
+│   ├── conexion.py          # Conexión a PostgreSQL, errores en español, crear/reiniciar
+│   ├── base_datos.py        # Personas, fotos y vectores (también copia y borra las fotos)
 │   ├── motor_facial.py      # Leer imagen, detectar, alinear, extraer embedding, comparar
-│   └── interfaz.py          # Ayudas Tkinter: cámara, recuadros con Pillow, hilos
+│   └── interfaz.py          # Ayudas Tkinter: cámara, recuadros, hilos, arranque de apps
 ├── sql/
 │   └── esquema.sql          # CREATE TABLE ... (se puede abrir en pgAdmin)
 ├── scripts/
@@ -51,6 +54,7 @@ facereconer/
 └── tests/
     ├── test_base_datos.py   # Contra la base facescan_test
     ├── test_motor_facial.py
+    ├── test_interfaz.py     # Cámara simulada: backends y cuadros negros
     └── test_registro.py
 ```
 
@@ -67,7 +71,10 @@ facereconer/
 - Código, nombres de variables, comentarios y mensajes de la interfaz **en español**.
 - El código se va a exponer en clase: funciones cortas, nombres claros, un docstring de una
   línea por función pública. Sin abstracciones innecesarias, sin clases si una función basta.
-- Los dos programas **nunca** escriben SQL directamente: usan `facescan/base_datos.py`.
+- Los dos programas **nunca** escriben SQL directamente: usan `facescan/base_datos.py`
+  (el SQL vive solo en `base_datos.py` y `conexion.py`).
+- Cada programa son dos archivos: `*_ventana.py` arma los widgets y `*_app.py` (que hereda de
+  la ventana) tiene el estado y las acciones. Ningún archivo de la app pasa de ~250 líneas.
 - Los dos programas **nunca** llaman a OpenCV DNN directamente: usan `facescan/motor_facial.py`.
 - Consultas siempre parametrizadas (`%s`), nunca con f-strings.
 - Los valores ajustables (umbral de similitud, cámara, tamaño de entrada) van en `config.py`.

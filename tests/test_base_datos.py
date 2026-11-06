@@ -3,15 +3,15 @@
 import numpy as np
 import pytest
 
-from facescan import base_datos, config
-from facescan.base_datos import ErrorBaseDatos
+from facescan import base_datos, config, conexion
+from facescan.conexion import ErrorBaseDatos
 
 
 @pytest.fixture(scope="module")
 def base_pruebas():
     """Crea facescan_test una vez; omite las pruebas si PostgreSQL no responde."""
     try:
-        base_datos.crear_base(config.BD_NOMBRE_PRUEBAS)
+        conexion.crear_base(config.BD_NOMBRE_PRUEBAS)
     except ErrorBaseDatos as error:
         pytest.skip(f"PostgreSQL no disponible: {error}")
 
@@ -22,9 +22,9 @@ def bd(base_pruebas, monkeypatch, tmp_path):
     monkeypatch.setattr(config, "BD_NOMBRE", config.BD_NOMBRE_PRUEBAS)
     monkeypatch.setattr(config, "RAIZ", tmp_path)
     monkeypatch.setattr(config, "CARPETA_FOTOS", tmp_path / "datos" / "fotos")
-    base_datos.inicializar()
-    with base_datos.conectar() as conexion:
-        conexion.execute("TRUNCATE personas, fotos RESTART IDENTITY CASCADE")
+    conexion.inicializar()
+    with conexion.conectar() as con_bd:
+        con_bd.execute("TRUNCATE personas, fotos RESTART IDENTITY CASCADE")
     return tmp_path
 
 
@@ -128,8 +128,8 @@ def test_validaciones_en_python(bd, cambio, mensaje):
 
 def test_check_de_carrera_en_la_tabla(bd):
     with pytest.raises(ErrorBaseDatos, match="carrera"):
-        with base_datos.conectar() as conexion:
-            conexion.execute(
+        with conexion.conectar() as con_bd:
+            con_bd.execute(
                 """INSERT INTO personas (nombre_completo, edad, carrera, semestre, consentimiento)
                    VALUES ('Ana', 20, '   ', 3, TRUE)"""
             )
@@ -171,7 +171,7 @@ def test_reiniciar_deja_todo_vacio(bd):
     base_datos.registrar_persona(datos_persona(), [foto_falsa(bd)])
     (config.CARPETA_FOTOS / "99").mkdir()  # carpeta vieja de una base anterior
 
-    base_datos.reiniciar()
+    conexion.reiniciar()
 
     assert base_datos.listar_personas() == []
     assert base_datos.version_datos() == 0
@@ -186,11 +186,11 @@ def test_agregar_foto_a_persona_inexistente(bd):
 
 
 def test_base_sin_tablas_pide_crear_bd(bd):
-    with base_datos.conectar() as conexion:
-        conexion.execute("DROP TABLE fotos, personas, estado")
+    with conexion.conectar() as con_bd:
+        con_bd.execute("DROP TABLE fotos, personas, estado")
     with pytest.raises(ErrorBaseDatos, match="crear_bd.py"):
         base_datos.listar_personas()
-    base_datos.inicializar()
+    conexion.inicializar()
 
 
 def test_contraseña_incorrecta(base_pruebas, monkeypatch):

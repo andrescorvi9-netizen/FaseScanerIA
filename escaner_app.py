@@ -1,26 +1,21 @@
-"""Programa 2: escáner facial en vivo."""
+"""Programa 2: escáner facial en vivo (cámara, reconocimiento y recarga desde la base)."""
 
-import tkinter as tk
 from collections import deque
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 
 import cv2
 import numpy as np
 
+from escaner_ventana import VentanaEscaner
 from facescan import base_datos, config, interfaz, motor_facial
-from facescan.base_datos import ErrorBaseDatos
+from facescan.conexion import ErrorBaseDatos
 from facescan.interfaz import ErrorCamara
 from facescan.motor_facial import ErrorMotorFacial
 
 MS_POR_CUADRO = 10  # read() espera el siguiente cuadro: el ritmo lo pone la cámara (~30 fps)
-ANCHO_VIDEO, ALTO_VIDEO = 640, 480
-LADO_FOTO_FICHA = 220
 INDICES_CAMARA = range(4)
 SIN_ROSTRO, DESCONOCIDO = "Sin rostro", "Desconocido"
-CAMPOS_FICHA = [("edad", "Edad"), ("carrera", "Carrera"), ("semestre", "Semestre"),
-                ("codigo", "Código"), ("similitud", "Similitud")]
-TIPOS_IMAGEN = [("Imágenes", "*.jpg *.jpeg *.png"), ("Todos los archivos", "*.*")]
 
 
 def elegir_candidato(resultados):
@@ -33,8 +28,8 @@ def elegir_candidato(resultados):
     return max(conocidos, key=lambda r: r["similitud"])["id"]
 
 
-class AppEscaner:
-    """Ventana principal del escáner."""
+class AppEscaner(VentanaEscaner):
+    """Escáner: lee la cámara, reconoce rostros y mantiene los vectores al día."""
 
     def __init__(self, ventana):
         self.ventana = ventana
@@ -45,71 +40,16 @@ class AppEscaner:
         self.historial = deque(maxlen=config.ANALISIS_PARA_CAMBIAR_FICHA)
         self.ficha_actual = None
         self.version, self.ids, self.personas = None, [], {}
-        self.tarea_camara = self.tarea_bd = None
         self.matriz = np.empty((0, config.DIMENSION_EMBEDDING), dtype=np.float32)
+        self.tarea_camara = self.tarea_bd = None
         self.construir_interfaz()
-        self.mostrar_ficha(SIN_ROSTRO)
+        self.cambiar_ficha(SIN_ROSTRO)
         self.abrir_camara_inicial()
         self.consultar_base()
         self.ciclo_camara()
         ventana.protocol("WM_DELETE_WINDOW", self.cerrar)
 
-    # ---------- Construcción de la interfaz ----------
-
-    def construir_interfaz(self):
-        """Arma la vista de cámara con sus controles, la ficha y la barra de estado."""
-        izquierda = ttk.Frame(self.ventana, padding=10)
-        izquierda.pack(side="left", fill="y")
-        # Marco de tamaño fijo: una foto de otra proporción no mueve el resto de la ventana.
-        marco_video = tk.Frame(izquierda, bg="black", width=ANCHO_VIDEO, height=ALTO_VIDEO)
-        marco_video.pack()
-        marco_video.pack_propagate(False)
-        self.vista = tk.Label(marco_video, bg="black")
-        self.vista.pack(expand=True)
-        self.construir_controles(izquierda)
-        self.construir_ficha(ttk.Frame(self.ventana, padding=10))
-        self.var_estado_camara, self.var_estado_bd = tk.StringVar(), tk.StringVar(value="Conectando…")
-        ttk.Label(izquierda, textvariable=self.var_estado_camara, foreground="gray").pack(anchor="w")
-        ttk.Label(izquierda, textvariable=self.var_estado_bd, foreground="gray",
-                  wraplength=ANCHO_VIDEO).pack(anchor="w")
-
-    def construir_controles(self, padre):
-        """Crea los botones y el control del umbral."""
-        controles = ttk.Frame(padre)
-        controles.pack(fill="x", pady=8)
-        self.boton_pausa = ttk.Button(controles, text="Pausar", command=self.alternar_pausa)
-        self.boton_camara = ttk.Button(controles, text="Cambiar cámara", command=self.cambiar_camara)
-        for boton in (self.boton_pausa, self.boton_camara,
-                      ttk.Button(controles, text="Analizar foto", command=self.analizar_foto)):
-            boton.pack(side="left", padx=(0, 6))
-        self.var_umbral = tk.DoubleVar(value=config.UMBRAL_COSENO)
-        texto_umbral = tk.StringVar(value=f"Umbral: {config.UMBRAL_COSENO:.2f}")
-        ttk.Label(controles, textvariable=texto_umbral, width=12).pack(side="right")
-        ttk.Scale(controles, from_=config.UMBRAL_MINIMO, to=config.UMBRAL_MAXIMO, length=170,
-                  variable=self.var_umbral,
-                  command=lambda valor: texto_umbral.set(f"Umbral: {float(valor):.2f}")
-                  ).pack(side="right", padx=6)
-
-    def construir_ficha(self, marco):
-        """Crea el panel con la foto y los datos de la persona reconocida."""
-        marco.pack(side="left", fill="both", expand=True)
-        ttk.Label(marco, text="Ficha", font=("Segoe UI", 13, "bold")).pack(anchor="w")
-        self.foto_ficha = tk.Label(marco, bg="#dddddd")
-        self.foto_ficha.pack(pady=8)
-        self.var_nombre = tk.StringVar()
-        ttk.Label(marco, textvariable=self.var_nombre, font=("Segoe UI", 15, "bold"),
-                  wraplength=300).pack(anchor="w", pady=(0, 8))
-        datos = ttk.Frame(marco)
-        datos.pack(fill="x")
-        self.vars_ficha = {}
-        for fila, (clave, titulo) in enumerate(CAMPOS_FICHA):
-            self.vars_ficha[clave] = tk.StringVar(value="—")
-            ttk.Label(datos, text=f"{titulo}:", font=("Segoe UI", 10, "bold")).grid(
-                row=fila, column=0, sticky="nw", pady=2, padx=(0, 8))
-            ttk.Label(datos, textvariable=self.vars_ficha[clave], wraplength=220).grid(
-                row=fila, column=1, sticky="w")
-
-    # ---------- Cámara y reconocimiento ----------
+    # ---------- Cámara ----------
 
     def abrir_camara_inicial(self):
         """Abre la cámara de config en segundo plano para que la ventana aparezca enseguida."""
@@ -145,13 +85,15 @@ class AppEscaner:
                 self.var_estado_camara.set("La cámara no envía imagen. ¿Se desconectó?")
         self.tarea_camara = self.ventana.after(MS_POR_CUADRO, self.ciclo_camara)
 
+    # ---------- Reconocimiento ----------
+
     def procesar_cuadro(self, cuadro):
         """Analiza 1 de cada N cuadros y dibuja el último resultado en todos."""
         if self.contador % config.CUADROS_ENTRE_ANALISIS == 0:
             self.resultados = self.analizar(cuadro)
             self.decidir_ficha(self.resultados)
         self.contador += 1
-        self.mostrar_en_vista(cuadro, self.resultados)
+        self.mostrar_en_vista(cuadro, self.marcas(self.resultados))
 
     def analizar(self, imagen):
         """Detecta los rostros de la imagen e identifica cada uno."""
@@ -163,8 +105,8 @@ class AppEscaner:
             resultados.append({"caja": rostro["caja"], "id": id_persona, "similitud": similitud})
         return resultados
 
-    def mostrar_en_vista(self, imagen, resultados):
-        """Dibuja los recuadros (verde conocido, rojo desconocido) y muestra la imagen."""
+    def marcas(self, resultados):
+        """Convierte los resultados en recuadros: verde con nombre, o rojo "Desconocido"."""
         marcas = []
         for r in resultados:
             porcentaje = f"{max(r['similitud'], 0):.0%}"
@@ -173,9 +115,7 @@ class AppEscaner:
                 marcas.append((r["caja"], interfaz.VERDE, f"{persona['nombre_completo']} {porcentaje}"))
             else:
                 marcas.append((r["caja"], interfaz.ROJO, f"{DESCONOCIDO} {porcentaje}"))
-        self.vista.imagen = interfaz.imagen_a_tk(
-            interfaz.dibujar_rostros(imagen, marcas), ANCHO_VIDEO, ALTO_VIDEO)
-        self.vista.configure(image=self.vista.imagen)
+        return marcas
 
     def decidir_ficha(self, resultados):
         """Cambia la ficha solo si los últimos análisis coinciden (evita parpadeos)."""
@@ -183,41 +123,19 @@ class AppEscaner:
         self.historial.append(candidato)
         estable = len(self.historial) == self.historial.maxlen and len(set(self.historial)) == 1
         if estable and candidato != self.ficha_actual:
-            self.mostrar_ficha(candidato)
-        self.mostrar_similitud(resultados)
+            self.cambiar_ficha(candidato)
+        self.actualizar_similitud(resultados)
 
-    # ---------- Ficha ----------
-
-    def mostrar_ficha(self, candidato):
-        """Llena la ficha con la persona indicada, o con "Sin rostro" / "Desconocido"."""
+    def cambiar_ficha(self, candidato):
+        """Muestra en la ficha al id indicado, o "Sin rostro" / "Desconocido"."""
         self.ficha_actual = candidato
-        persona = self.personas.get(candidato)
-        if persona is None:
-            self.var_nombre.set(candidato if isinstance(candidato, str) else SIN_ROSTRO)
-            for variable in self.vars_ficha.values():
-                variable.set("—")
-            self.poner_foto_ficha(None)
-            return
-        self.var_nombre.set(persona["nombre_completo"])
-        for clave, _ in CAMPOS_FICHA[:-1]:
-            self.vars_ficha[clave].set(persona[clave] or "—")
-        self.poner_foto_ficha(persona["primera_foto"])
+        texto = candidato if isinstance(candidato, str) else SIN_ROSTRO
+        self.mostrar_ficha(self.personas.get(candidato), texto)
 
-    def poner_foto_ficha(self, ruta):
-        """Muestra la primera foto registrada, o un recuadro gris si no hay."""
-        imagen = np.full((LADO_FOTO_FICHA, LADO_FOTO_FICHA, 3), 221, dtype=np.uint8)
-        if ruta:
-            try:
-                imagen = motor_facial.leer_imagen(ruta)
-            except ErrorMotorFacial:
-                pass  # la foto se borró del disco: se deja el recuadro gris
-        self.foto_ficha.imagen = interfaz.imagen_a_tk(imagen, LADO_FOTO_FICHA, LADO_FOTO_FICHA)
-        self.foto_ficha.configure(image=self.foto_ficha.imagen)
-
-    def mostrar_similitud(self, resultados):
-        """Actualiza el % de similitud de la persona que está en la ficha."""
+    def actualizar_similitud(self, resultados):
+        """Muestra la mayor similitud de la persona que está en la ficha."""
         similitudes = [r["similitud"] for r in resultados if r["id"] == self.ficha_actual]
-        self.vars_ficha["similitud"].set(f"{max(similitudes):.0%}" if similitudes else "—")
+        self.mostrar_similitud(max(similitudes) if similitudes else None)
 
     # ---------- Base de datos (en segundo plano) ----------
 
@@ -250,7 +168,7 @@ class AppEscaner:
                 self.historial.clear()
                 # Si la persona de la ficha se editó o se eliminó, la ficha se actualiza.
                 sigue = isinstance(self.ficha_actual, str) or self.ficha_actual in self.personas
-                self.mostrar_ficha(self.ficha_actual if sigue else SIN_ROSTRO)
+                self.cambiar_ficha(self.ficha_actual if sigue else SIN_ROSTRO)
             self.var_estado_bd.set(f"Base de datos: {len(self.personas)} personas, "
                                    f"{len(self.ids)} fotos.")
         self.tarea_bd = self.ventana.after(config.MS_ENTRE_CONSULTAS_BD, self.consultar_base)
@@ -299,7 +217,7 @@ class AppEscaner:
 
     def analizar_foto(self):
         """Analiza una imagen del disco igual que un cuadro de la cámara."""
-        ruta = filedialog.askopenfilename(title="Analizar foto", filetypes=TIPOS_IMAGEN)
+        ruta = filedialog.askopenfilename(title="Analizar foto", filetypes=interfaz.TIPOS_IMAGEN)
         if not ruta:
             return
         try:
@@ -310,9 +228,9 @@ class AppEscaner:
         if not self.pausado:
             self.alternar_pausa()
         resultados = self.analizar(imagen)
-        self.mostrar_en_vista(imagen, resultados)
-        self.mostrar_ficha(elegir_candidato(resultados))
-        self.mostrar_similitud(resultados)
+        self.mostrar_en_vista(imagen, self.marcas(resultados))
+        self.cambiar_ficha(elegir_candidato(resultados))
+        self.actualizar_similitud(resultados)
         self.var_estado_camara.set(f"Foto analizada: {Path(ruta).name}. "
                                    "Pulsa Reanudar para volver a la cámara.")
 
@@ -328,18 +246,7 @@ class AppEscaner:
 
 def main():
     """Abre la ventana del escáner."""
-    ventana = tk.Tk()
-    ventana.title("FaceScan · Escáner")
-    ventana.geometry("1020x640")
-    try:
-        motor_facial.cargar_modelos()
-    except ErrorMotorFacial as error:
-        ventana.withdraw()
-        messagebox.showerror("FaceScan", str(error))
-        ventana.destroy()
-        return
-    AppEscaner(ventana)
-    ventana.mainloop()
+    interfaz.iniciar_app(AppEscaner, "FaceScan · Escáner", "1020x640")
 
 
 if __name__ == "__main__":
