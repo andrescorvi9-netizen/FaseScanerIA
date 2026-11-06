@@ -18,6 +18,7 @@ RUTA_RECONOCEDOR = CARPETA_MODELOS / "face_recognition_sface_2021dec.onnx"
 # --- Reconocimiento ---
 UMBRAL_DETECCION = 0.8   # confianza mínima de YuNet para aceptar un rostro
 UMBRAL_COSENO = 0.363    # similitud mínima de SFace recomendada por OpenCV
+LADO_MAXIMO_IMAGEN = 1280  # las fotos más grandes se reducen antes de detectar
 MAX_FOTOS_POR_PERSONA = 5
 DIMENSION_EMBEDDING = 128  # tamaño del vector que produce SFace
 

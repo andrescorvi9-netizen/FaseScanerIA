@@ -12,3 +12,6 @@ modelos/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Notas personales (se quedan solo en el equipo)
+PROMPTS_FaceScan.md
