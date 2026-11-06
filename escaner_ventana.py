@@ -12,6 +12,7 @@ ANCHO_VIDEO, ALTO_VIDEO = 640, 480
 LADO_FOTO_FICHA = 220
 CAMPOS_FICHA = [("edad", "Edad"), ("carrera", "Carrera"), ("semestre", "Semestre"),
                 ("codigo", "Código"), ("similitud", "Similitud")]
+SIN_ROSTRO, DESCONOCIDO = "Sin rostro", "Desconocido"
 
 
 class VentanaEscaner:
@@ -71,8 +72,16 @@ class VentanaEscaner:
             ttk.Label(datos, textvariable=self.vars_ficha[clave], wraplength=220).grid(
                 row=fila, column=1, sticky="w")
 
-    def mostrar_en_vista(self, imagen, marcas):
-        """Dibuja los recuadros (caja, color, texto) sobre la imagen y la muestra."""
+    def mostrar_en_vista(self, imagen, resultados, personas):
+        """Dibuja un recuadro por rostro (verde con nombre, rojo si es desconocido) y lo muestra."""
+        marcas = []
+        for r in resultados:
+            porcentaje = f"{max(r['similitud'], 0):.0%}"
+            persona = personas.get(r["id"])
+            if persona:
+                marcas.append((r["caja"], interfaz.VERDE, f"{persona['nombre_completo']} {porcentaje}"))
+            else:
+                marcas.append((r["caja"], interfaz.ROJO, f"{DESCONOCIDO} {porcentaje}"))
         self.vista.imagen = interfaz.imagen_a_tk(
             interfaz.dibujar_rostros(imagen, marcas), ANCHO_VIDEO, ALTO_VIDEO)
         self.vista.configure(image=self.vista.imagen)

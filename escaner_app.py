@@ -7,7 +7,7 @@ from tkinter import filedialog, messagebox
 import cv2
 import numpy as np
 
-from escaner_ventana import VentanaEscaner
+from escaner_ventana import DESCONOCIDO, SIN_ROSTRO, VentanaEscaner
 from facescan import base_datos, config, interfaz, motor_facial
 from facescan.conexion import ErrorBaseDatos
 from facescan.interfaz import ErrorCamara
@@ -15,7 +15,6 @@ from facescan.motor_facial import ErrorMotorFacial
 
 MS_POR_CUADRO = 10  # read() espera el siguiente cuadro: el ritmo lo pone la cámara (~30 fps)
 INDICES_CAMARA = range(4)
-SIN_ROSTRO, DESCONOCIDO = "Sin rostro", "Desconocido"
 
 
 def elegir_candidato(resultados):
@@ -44,15 +43,15 @@ class AppEscaner(VentanaEscaner):
         self.tarea_camara = self.tarea_bd = None
         self.construir_interfaz()
         self.cambiar_ficha(SIN_ROSTRO)
-        self.abrir_camara_inicial()
+        self.encender_camara()
         self.consultar_base()
         self.ciclo_camara()
         ventana.protocol("WM_DELETE_WINDOW", self.cerrar)
 
     # ---------- Cámara ----------
 
-    def abrir_camara_inicial(self):
-        """Abre la cámara de config en segundo plano para que la ventana aparezca enseguida."""
+    def encender_camara(self):
+        """Abre la cámara en segundo plano para que la ventana no se congele mientras tanto."""
         self.var_estado_camara.set("Abriendo cámara…")
         self.boton_camara.configure(state="disabled")
         indice = self.indice_camara
@@ -62,6 +61,9 @@ class AppEscaner(VentanaEscaner):
     def al_abrir_camara(self, camara, error):
         """Empieza a usar la cámara abierta o explica por qué no abrió."""
         self.boton_camara.configure(state="normal")
+        if self.pausado and camara is not None:
+            camara.release()  # se pausó mientras abría: la cámara debe quedar libre
+            return
         if error:
             self.var_estado_camara.set("Sin cámara: prueba \"Cambiar cámara\" o \"Analizar foto\".")
             messagebox.showerror("FaceScan", str(error))
@@ -93,7 +95,7 @@ class AppEscaner(VentanaEscaner):
             self.resultados = self.analizar(cuadro)
             self.decidir_ficha(self.resultados)
         self.contador += 1
-        self.mostrar_en_vista(cuadro, self.marcas(self.resultados))
+        self.mostrar_en_vista(cuadro, self.resultados, self.personas)
 
     def analizar(self, imagen):
         """Detecta los rostros de la imagen e identifica cada uno."""
@@ -104,18 +106,6 @@ class AppEscaner(VentanaEscaner):
                 embedding, self.ids, self.matriz, umbral=self.var_umbral.get())
             resultados.append({"caja": rostro["caja"], "id": id_persona, "similitud": similitud})
         return resultados
-
-    def marcas(self, resultados):
-        """Convierte los resultados en recuadros: verde con nombre, o rojo "Desconocido"."""
-        marcas = []
-        for r in resultados:
-            porcentaje = f"{max(r['similitud'], 0):.0%}"
-            persona = self.personas.get(r["id"])
-            if persona:
-                marcas.append((r["caja"], interfaz.VERDE, f"{persona['nombre_completo']} {porcentaje}"))
-            else:
-                marcas.append((r["caja"], interfaz.ROJO, f"{DESCONOCIDO} {porcentaje}"))
-        return marcas
 
     def decidir_ficha(self, resultados):
         """Cambia la ficha solo si los últimos análisis coinciden (evita parpadeos)."""
@@ -176,13 +166,23 @@ class AppEscaner(VentanaEscaner):
     # ---------- Botones ----------
 
     def alternar_pausa(self):
-        """Pausa o reanuda la cámara."""
+        """Pausa soltando la cámara (así el registro puede usarla) o la vuelve a abrir."""
         self.pausado = not self.pausado
         self.boton_pausa.configure(text="Reanudar" if self.pausado else "Pausar")
-        if not self.pausado:
+        self.boton_camara.configure(state="disabled" if self.pausado else "normal")
+        if self.pausado:
+            self.apagar_camara()
+            self.var_estado_camara.set("En pausa: la cámara quedó libre para otro programa.")
+        else:
             self.contador, self.resultados = 0, []
             self.historial.clear()
-            self.var_estado_camara.set(self.texto_camara())
+            self.encender_camara()
+
+    def apagar_camara(self):
+        """Libera la cámara: en Windows solo un programa a la vez puede usarla."""
+        if self.camara is not None:
+            self.camara.release()
+            self.camara = None
 
     def cambiar_camara(self):
         """Busca en segundo plano la siguiente cámara que funcione (índices 0 a 3)."""
@@ -228,7 +228,7 @@ class AppEscaner(VentanaEscaner):
         if not self.pausado:
             self.alternar_pausa()
         resultados = self.analizar(imagen)
-        self.mostrar_en_vista(imagen, self.marcas(resultados))
+        self.mostrar_en_vista(imagen, resultados, self.personas)
         self.cambiar_ficha(elegir_candidato(resultados))
         self.actualizar_similitud(resultados)
         self.var_estado_camara.set(f"Foto analizada: {Path(ruta).name}. "
@@ -239,8 +239,7 @@ class AppEscaner(VentanaEscaner):
         for tarea in (self.tarea_camara, self.tarea_bd):
             if tarea:
                 self.ventana.after_cancel(tarea)
-        if self.camara is not None:
-            self.camara.release()
+        self.apagar_camara()
         self.ventana.destroy()
 
 

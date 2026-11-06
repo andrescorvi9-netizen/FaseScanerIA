@@ -55,6 +55,7 @@ facereconer/
     ├── test_base_datos.py   # Contra la base facescan_test
     ├── test_motor_facial.py
     ├── test_interfaz.py     # Cámara simulada: backends y cuadros negros
+    ├── test_escaner.py      # Pausa suelta la cámara; elección del candidato
     └── test_registro.py
 ```
 
