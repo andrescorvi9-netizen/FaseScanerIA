@@ -70,7 +70,8 @@ class AppEscaner:
         self.construir_ficha(ttk.Frame(self.ventana, padding=10))
         self.var_estado_camara, self.var_estado_bd = tk.StringVar(), tk.StringVar(value="Conectando…")
         ttk.Label(izquierda, textvariable=self.var_estado_camara, foreground="gray").pack(anchor="w")
-        ttk.Label(izquierda, textvariable=self.var_estado_bd, foreground="gray").pack(anchor="w")
+        ttk.Label(izquierda, textvariable=self.var_estado_bd, foreground="gray",
+                  wraplength=ANCHO_VIDEO).pack(anchor="w")
 
     def construir_controles(self, padre):
         """Crea los botones y el control del umbral."""
@@ -237,7 +238,8 @@ class AppEscaner:
     def al_consultar(self, resultado, error):
         """Aplica los datos nuevos o avisa que no hay conexión; luego programa otra consulta."""
         if isinstance(error, ErrorBaseDatos):
-            self.var_estado_bd.set("Sin conexión a la base de datos (reintentando…)")
+            # Se muestra la causa (servicio apagado, contraseña, tablas...) y se reintenta.
+            self.var_estado_bd.set(f"Sin conexión a la base de datos (reintentando…). {error}")
         elif error:
             self.var_estado_bd.set(f"Error al consultar la base de datos: {error}")
         else:

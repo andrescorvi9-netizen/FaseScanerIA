@@ -183,3 +183,38 @@ def test_reiniciar_deja_todo_vacio(bd):
 def test_agregar_foto_a_persona_inexistente(bd):
     with pytest.raises(ErrorBaseDatos, match="ya no existe"):
         base_datos.agregar_foto(999, *foto_falsa(bd))
+
+
+def test_base_sin_tablas_pide_crear_bd(bd):
+    with base_datos.conectar() as conexion:
+        conexion.execute("DROP TABLE fotos, personas, estado")
+    with pytest.raises(ErrorBaseDatos, match="crear_bd.py"):
+        base_datos.listar_personas()
+    base_datos.inicializar()
+
+
+def test_contraseña_incorrecta(base_pruebas, monkeypatch):
+    monkeypatch.setattr(config, "BD_CLAVE", "clave_incorrecta_de_prueba")
+    try:
+        base_datos.version_datos()
+    except ErrorBaseDatos as error:
+        assert "contraseña" in str(error)
+    else:
+        pytest.skip("Este PostgreSQL acepta cualquier contraseña (método trust)")
+
+
+def test_sin_archivo_env(bd, monkeypatch):
+    monkeypatch.setattr(config, "BD_CLAVE", "clave_incorrecta_de_prueba")  # RAIZ es tmp: no hay .env
+    try:
+        base_datos.version_datos()
+    except ErrorBaseDatos as error:
+        assert "Copia .env.ejemplo" in str(error)
+    else:
+        pytest.skip("Este PostgreSQL acepta cualquier contraseña (método trust)")
+
+
+def test_postgresql_apagado(monkeypatch):
+    monkeypatch.setattr(config, "BD_HOST", "127.0.0.1")
+    monkeypatch.setattr(config, "BD_PUERTO", 5999)  # puerto donde no escucha nadie
+    with pytest.raises(ErrorBaseDatos, match="encendido"):
+        base_datos.version_datos()

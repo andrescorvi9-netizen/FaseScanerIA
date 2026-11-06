@@ -135,7 +135,7 @@ class AppRegistro:
         botones = ttk.Frame(padre)
         botones.pack(fill="x")
         for texto, accion in [("Editar", self.editar), ("Agregar fotos", self.agregar_fotos),
-                              ("Eliminar", self.eliminar), ("Actualizar lista", self.refrescar_lista)]:
+                              ("Eliminar", self.eliminar), ("Actualizar lista", lambda: self.refrescar_lista(avisar=True))]:
             boton = ttk.Button(botones, text=texto, command=accion)
             boton.pack(side="left", padx=(0, 6))
             self.botones_accion.append(boton)
@@ -289,18 +289,16 @@ class AppRegistro:
         self.actualizar_botones()
 
     def editar(self):
-        """Carga en el formulario los datos de la persona elegida."""
+        """Lee de la base (en segundo plano) los datos de la persona elegida."""
         id_persona = self.id_seleccionado()
-        if id_persona is None:
-            return
-        try:
-            persona = base_datos.obtener_persona(id_persona)
-        except ErrorBaseDatos as error:
-            self.mostrar_error(error)
-            return
+        if id_persona is not None:
+            self.ejecutar(lambda: base_datos.obtener_persona(id_persona),
+                          "Cargando datos…", self.al_editar)
+
+    def al_editar(self, persona):
+        """Carga en el formulario los datos leídos para editarlos."""
         if persona is None:
             messagebox.showinfo("FaceScan", "Esa persona ya no existe.")
-            self.refrescar_lista()
             return
         self.limpiar()
         for variable, campo in [(self.var_nombre, "nombre_completo"), (self.var_edad, "edad"),
@@ -308,7 +306,7 @@ class AppRegistro:
                                 (self.var_consentimiento, "consentimiento")]:
             variable.set(persona[campo])
         self.var_codigo.set(persona["codigo"] or "")
-        self.id_editando = id_persona
+        self.id_editando = persona["id"]
         self.var_titulo.set(f"Editando: {persona['nombre_completo']}")
         self.boton_guardar.configure(text="Guardar cambios")
         self.actualizar_botones()
@@ -350,14 +348,19 @@ class AppRegistro:
         messagebox.showinfo("FaceScan", f"Se eliminó a {nombre}.")
 
     def refrescar_lista(self, avisar=False):
-        """Vuelve a leer las personas de la base y llena la tabla."""
-        try:
-            personas = base_datos.listar_personas()
-        except ErrorBaseDatos as error:
+        """Vuelve a leer las personas de la base en segundo plano y llena la tabla."""
+        interfaz.en_segundo_plano(self.ventana, base_datos.listar_personas,
+                                  lambda personas, error: self.al_listar(personas, error, avisar))
+
+    def al_listar(self, personas, error, avisar):
+        """Llena la tabla con las personas leídas, o avisa que no hay conexión."""
+        if error:
             self.var_estado.set("Sin conexión con la base de datos.")
             if avisar:
                 self.mostrar_error(error)
             return
+        if not self.ocupado:
+            self.var_estado.set("Listo.")
         self.lista.delete(*self.lista.get_children())
         for persona in personas:
             self.lista.insert("", "end", iid=str(persona["id"]),

@@ -26,10 +26,14 @@ def cargar_modelos():
                                    "Ejecuta python scripts\\descargar_modelos.py")
     # Oculta avisos internos de OpenCV 5 que no afectan el resultado.
     cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)
-    detector = cv2.FaceDetectorYN.create(
-        str(config.RUTA_DETECTOR), "", (320, 320), config.UMBRAL_DETECCION
-    )
-    reconocedor = cv2.FaceRecognizerSF.create(str(config.RUTA_RECONOCEDOR), "")
+    try:
+        detector = cv2.FaceDetectorYN.create(
+            str(config.RUTA_DETECTOR), "", (320, 320), config.UMBRAL_DETECCION
+        )
+        reconocedor = cv2.FaceRecognizerSF.create(str(config.RUTA_RECONOCEDOR), "")
+    except cv2.error:
+        raise ErrorMotorFacial("Un modelo de la carpeta modelos/ está dañado. Borra los .onnx y "
+                               "ejecuta python scripts\\descargar_modelos.py") from None
     return detector, reconocedor
 
 

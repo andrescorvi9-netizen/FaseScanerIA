@@ -61,6 +61,18 @@ def test_faltan_modelos(monkeypatch, tmp_path):
         motor_facial.cargar_modelos.cache_clear()
 
 
+def test_modelo_dañado(monkeypatch, tmp_path):
+    dañado = tmp_path / "yunet.onnx"
+    dañado.write_bytes(b"descarga incompleta")
+    monkeypatch.setattr(config, "RUTA_DETECTOR", dañado)
+    motor_facial.cargar_modelos.cache_clear()
+    try:
+        with pytest.raises(ErrorMotorFacial, match="dañado"):
+            motor_facial.cargar_modelos()
+    finally:
+        motor_facial.cargar_modelos.cache_clear()
+
+
 def test_identificar_con_matriz_vacia():
     matriz = np.empty((0, 128), dtype=np.float32)
     assert motor_facial.identificar(vector_unitario(1), [], matriz) == (None, 0.0)

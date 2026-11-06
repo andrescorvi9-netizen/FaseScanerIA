@@ -31,6 +31,9 @@ class ErrorBaseDatos(Exception):
 def _mensaje_conexion(error):
     """Traduce un fallo de conexión de PostgreSQL a un mensaje claro."""
     texto = str(error).lower()
+    if "password" in texto and not (config.RAIZ / ".env").exists():
+        return ("No existe el archivo .env. Copia .env.ejemplo como .env y escribe "
+                "la contraseña de PostgreSQL en FACESCAN_DB_PASSWORD.")
     if "password" in texto:
         return ("PostgreSQL rechazó la contraseña. Revisa FACESCAN_DB_USER y "
                 "FACESCAN_DB_PASSWORD en el archivo .env.")
@@ -67,8 +70,13 @@ def conectar(nombre_bd=None, autocommit=False):
             yield conexion
     except errors.IntegrityError as error:
         raise ErrorBaseDatos(_mensaje_restriccion(error)) from None
+    except errors.UndefinedTable:
+        raise ErrorBaseDatos(f"La base '{nombre_bd or config.BD_NOMBRE}' no tiene las tablas. "
+                             "Ejecuta: python scripts\\crear_bd.py") from None
     except psycopg.OperationalError:
         raise ErrorBaseDatos("Se perdió la conexión con PostgreSQL.") from None
+    except psycopg.Error as error:
+        raise ErrorBaseDatos(f"Error de PostgreSQL: {error}") from None
 
 
 def crear_base(nombre_bd):
