@@ -54,7 +54,9 @@ def test_registrar_y_obtener(bd):
     assert persona["fecha_registro"] is not None
     assert [ruta.name for ruta in persona["fotos"]] == ["1.jpg", "2.png"]
     assert all(ruta.exists() for ruta in persona["fotos"])
-    assert base_datos.listar_personas()[0]["num_fotos"] == 2
+    listado = base_datos.listar_personas()[0]
+    assert listado["num_fotos"] == 2
+    assert listado["primera_foto"] == persona["fotos"][0]
 
 
 def test_obtener_persona_inexistente(bd):

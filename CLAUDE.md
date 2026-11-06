@@ -37,16 +37,21 @@ facereconer/
 ├── facescan/                # Código compartido por los dos programas
 │   ├── __init__.py
 │   ├── config.py            # Rutas, umbrales, cámara, datos de conexión desde .env
-│   ├── base_datos.py        # Todo el SQL vive aquí
-│   └── motor_facial.py      # Detectar, alinear, extraer embedding, comparar
+│   ├── base_datos.py        # Todo el SQL vive aquí (también copia y borra las fotos)
+│   ├── motor_facial.py      # Leer imagen, detectar, alinear, extraer embedding, comparar
+│   └── interfaz.py          # Ayudas Tkinter: cámara, recuadros con Pillow, hilos
 ├── sql/
 │   └── esquema.sql          # CREATE TABLE ... (se puede abrir en pgAdmin)
 ├── scripts/
 │   ├── descargar_modelos.py
-│   └── crear_bd.py          # Crea la base "facescan" si no existe y ejecuta esquema.sql
+│   ├── crear_bd.py          # Crea la base "facescan" si no existe y ejecuta esquema.sql
+│   └── reiniciar_bd.py      # Vacía tablas y datos/fotos/ (pide escribir SI)
 ├── modelos/                 # .onnx descargados (no se suben a git)
 ├── datos/fotos/             # Fotos registradas (no se suben a git)
 └── tests/
+    ├── test_base_datos.py   # Contra la base facescan_test
+    ├── test_motor_facial.py
+    └── test_registro.py
 ```
 
 ## Base de datos

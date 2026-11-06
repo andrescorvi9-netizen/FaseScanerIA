@@ -22,8 +22,15 @@ LADO_MAXIMO_IMAGEN = 1280  # las fotos más grandes se reducen antes de detectar
 MAX_FOTOS_POR_PERSONA = 5
 DIMENSION_EMBEDDING = 128  # tamaño del vector que produce SFace
 
-# --- Cámara ---
+# --- Cámara y escáner ---
 INDICE_CAMARA = 0
+BACKEND_CAMARA = "MSMF"          # "MSMF" o "DSHOW"; si falla, se prueba el otro
+BRILLO_MINIMO_CAMARA = 25        # al arrancar se descartan cuadros más oscuros (0-255)...
+SEGUNDOS_ARRANQUE_CAMARA = 4.0   # ...durante como máximo estos segundos (MSMF tarda unos 3)
+CUADROS_ENTRE_ANALISIS = 3       # el escáner calcula embeddings 1 de cada 3 cuadros
+ANALISIS_PARA_CAMBIAR_FICHA = 3  # resultados iguales seguidos antes de cambiar la ficha
+MS_ENTRE_CONSULTAS_BD = 2000     # cada cuánto el escáner revisa estado.version
+UMBRAL_MINIMO, UMBRAL_MAXIMO = 0.25, 0.60  # rango del control de umbral en vivo
 
 # --- PostgreSQL (los valores reales se leen de .env) ---
 load_dotenv(RAIZ / ".env")

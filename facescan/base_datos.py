@@ -229,15 +229,21 @@ def agregar_foto(id_persona, ruta_foto, embedding):
 
 
 def listar_personas():
-    """Devuelve todas las personas ordenadas por nombre, con su número de fotos."""
+    """Devuelve todas las personas ordenadas por nombre, con su número de fotos y la primera."""
     with conectar() as conexion:
-        return conexion.execute(
+        personas = conexion.execute(
             """SELECT p.id, p.nombre_completo, p.edad, p.carrera, p.semestre, p.codigo,
-                      p.fecha_registro, count(f.id) AS num_fotos
+                      p.fecha_registro, count(f.id) AS num_fotos,
+                      (SELECT ruta FROM fotos WHERE id_persona = p.id
+                       ORDER BY id LIMIT 1) AS primera_foto
                FROM personas p LEFT JOIN fotos f ON f.id_persona = p.id
                GROUP BY p.id
                ORDER BY p.nombre_completo"""
         ).fetchall()
+    for persona in personas:
+        if persona["primera_foto"]:
+            persona["primera_foto"] = config.RAIZ / persona["primera_foto"]
+    return personas
 
 
 def obtener_persona(id_persona):
