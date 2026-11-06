@@ -1,0 +1,6 @@
+opencv-python>=5.0
+numpy>=2.0
+Pillow>=11.0
+psycopg[binary]>=3.2
+python-dotenv>=1.0
+pytest>=8.0

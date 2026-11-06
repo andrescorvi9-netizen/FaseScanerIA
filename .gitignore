@@ -1,0 +1,14 @@
+# Entorno virtual
+.venv/
+
+# Credenciales (contraseña de PostgreSQL)
+.env
+
+# Datos biométricos y modelos descargados
+datos/
+modelos/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
