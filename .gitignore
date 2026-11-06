@@ -15,3 +15,6 @@ __pycache__/
 
 # Notas personales (se quedan solo en el equipo)
 PROMPTS_FaceScan.md
+
+# Ajustes del editor (VS Code)
+.vscode/
